@@ -151,6 +151,60 @@ The gateway will automatically:
 - Spawn the agent subprocess and bridge standard I/O.
 - Forward task assignments, messages, and permission requests in real-time.
 
+## 🌌 Codex Gateway (Bridge for OpenAI Codex)
+
+Similar to the ACP Gateway, the `@agentrq/codex-gateway` connects [OpenAI Codex](https://github.com/openai/codex) to AgentRQ workspaces by bridging the Model Context Protocol (MCP) with the Codex app-server protocol.
+
+### Installation
+
+```bash
+npm install -g @agentrq/codex-gateway@latest
+```
+
+### Setup
+
+**1. Configure agentrq MCP server for Codex (project-level)**
+
+Codex reads project-level MCP server config from `.codex/config.toml`. Create this file so the Codex agent can use agentrq tools directly during task execution (replace `<WORKSPACEID>` and `<TOKEN>` with your values from the agentrq dashboard):
+
+```bash
+mkdir -p .codex
+cat >> .codex/config.toml << 'EOF'
+
+[mcp_servers.agentrq-workspace]
+url = "https://<WORKSPACEID>.mcp.agentrq.com/mcp?token=<TOKEN>"
+EOF
+```
+
+**2. Configure the gateway's agentrq connection**
+
+Create a `.mcp.json` in your project root so `codex-gateway` can connect to the same agentrq workspace:
+
+```json
+{
+  "mcpServers": {
+    "agentrq": {
+      "type": "http",
+      "url": "https://<WORKSPACEID>.mcp.agentrq.com/mcp?token=<TOKEN>"
+    }
+  }
+}
+```
+
+> **Note:** `.mcp.json` is used by `codex-gateway` to receive tasks. `.codex/config.toml` is used by the Codex agent itself to call agentrq tools (e.g. `reply`, `updateTaskStatus`) during execution.
+
+### Usage
+
+Run `codex-gateway` from your agentrq workspace root (the directory containing `.mcp.json`):
+
+```bash
+# Default: runs `codex app-server`
+codex-gateway
+
+# Custom codex command
+codex-gateway -- codex app-server
+```
+
 ## 👑 Supervisor (CoreMCP)
 
 While individual workspaces provide a scoped view for specific projects, the **Supervisor (CoreMCP)** is a global MCP server that grants an agent bird's-eye view and management capabilities across your entire AgentRQ account.

@@ -30,6 +30,11 @@
                   class="pb-3 text-[11px] border-b-2 transition-all">
             Gemini / ACP
           </button>
+          <button @click="activeTab = 'codex'" 
+                  :class="activeTab === 'codex' ? 'text-black border-black font-bold' : 'text-gray-500 border-transparent font-bold hover:text-gray-600'"
+                  class="pb-3 text-[11px] border-b-2 transition-all">
+            Codex
+          </button>
         </div>
 
         <!-- Content -->
@@ -83,6 +88,27 @@
             </div>
           </section>
 
+          <section v-if="activeTab === 'codex'" class="space-y-4">
+            <h3 class="text-sm font-bold text-gray-900 flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-[10px]">3</span>
+              Codex Config
+            </h3>
+            <p class="text-[13px] text-gray-600 leading-relaxed font-medium">
+              To enable Codex to use the AgentRQ tools during task execution, create a
+              <code class="bg-gray-100 px-1.5 py-0.5 rounded text-indigo-600 font-bold">.codex/config.toml</code>
+              file in your project directory:
+            </p>
+            <div class="bg-zinc-900 rounded-sm p-5 relative group">
+              <div class="flex justify-between items-center mb-4">
+                <span class="text-[10px] font-semibold text-zinc-500">.codex/config.toml</span>
+                <button @click="copyCodexConfig" class="text-[10px] font-semibold text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5">
+                  {{ isCodexConfigCopied ? 'Copied!' : 'Copy Config' }}
+                </button>
+              </div>
+              <pre class="text-[12px] text-zinc-300 font-mono leading-relaxed overflow-x-auto"><code>{{ codexConfigToml }}</code></pre>
+            </div>
+          </section>
+
           <section class="space-y-4 bg-indigo-50/50 p-6 rounded-sm border border-indigo-100/50">
             <h3 class="text-xs font-semibold text-indigo-600 flex items-center gap-2">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
@@ -99,6 +125,30 @@
                         :class="isCommandCopied ? 'text-green-500 opacity-100' : 'opacity-0 text-indigo-500'">
                   {{ isCommandCopied ? 'Copied!' : 'Copy' }}
                 </button>
+              </div>
+            </template>
+
+            <template v-else-if="activeTab === 'codex'">
+              <p class="text-[13px] text-indigo-950/70 font-medium leading-relaxed">
+                Run these commands to install and start the AgentRQ Codex Gateway:
+              </p>
+              <div class="space-y-2">
+                <div class="bg-white/80 p-3 rounded-sm border border-indigo-100 flex items-center justify-between group">
+                  <code class="text-[11px] text-indigo-600 font-bold overflow-hidden text-ellipsis">npm install -g @agentrq/codex-gateway@latest</code>
+                  <button @click="copyToClipboard('npm install -g @agentrq/codex-gateway@latest', 'isCodexInstalled')" 
+                          class="group-hover:opacity-100 text-[9px] font-semibold pl-2 transition-all"
+                          :class="isCodexInstalled ? 'text-green-500 opacity-100' : 'opacity-0 text-indigo-500'">
+                    {{ isCodexInstalled ? 'Copied!' : 'Copy' }}
+                  </button>
+                </div>
+                <div class="bg-white/80 p-3 rounded-sm border border-indigo-100 flex items-center justify-between group">
+                  <code class="text-[11px] text-indigo-600 font-bold overflow-hidden text-ellipsis">codex-gateway -- codex app-server</code>
+                  <button @click="copyToClipboard('codex-gateway -- codex app-server', 'isCodexStarted')" 
+                          class="group-hover:opacity-100 text-[9px] font-semibold pl-2 transition-all"
+                          :class="isCodexStarted ? 'text-green-500 opacity-100' : 'opacity-0 text-indigo-500'">
+                    {{ isCodexStarted ? 'Copied!' : 'Copy' }}
+                  </button>
+                </div>
               </div>
             </template>
 
@@ -155,6 +205,9 @@ const isPermissionsCopied = ref(false);
 const isCommandCopied = ref(false);
 const isGatewayInstalled = ref(false);
 const isGatewayStarted = ref(false);
+const isCodexInstalled = ref(false);
+const isCodexStarted = ref(false);
+const isCodexConfigCopied = ref(false);
 const token = ref('');
 const activeTab = ref('claude');
 
@@ -206,6 +259,11 @@ const permissionsConfig = computed(() => ({
 
 const permissionsConfigJson = computed(() => JSON.stringify(permissionsConfig.value, null, 2));
 
+const codexConfigToml = computed(() => {
+  return `[mcp_servers.agentrq-workspace]
+url = "${authenticatedUrl.value}"`;
+});
+
 function copyConfig() {
   navigator.clipboard.writeText(configJson.value);
   isCopied.value = true;
@@ -216,6 +274,12 @@ function copyPermissionsConfig() {
   navigator.clipboard.writeText(permissionsConfigJson.value);
   isPermissionsCopied.value = true;
   setTimeout(() => isPermissionsCopied.value = false, 2000);
+}
+
+function copyCodexConfig() {
+  navigator.clipboard.writeText(codexConfigToml.value);
+  isCodexConfigCopied.value = true;
+  setTimeout(() => isCodexConfigCopied.value = false, 2000);
 }
 
 function copyCommand() {
@@ -232,6 +296,12 @@ function copyToClipboard(text, flagRefName) {
   } else if (flagRefName === 'isGatewayStarted') {
     isGatewayStarted.value = true;
     setTimeout(() => isGatewayStarted.value = false, 2000);
+  } else if (flagRefName === 'isCodexInstalled') {
+    isCodexInstalled.value = true;
+    setTimeout(() => isCodexInstalled.value = false, 2000);
+  } else if (flagRefName === 'isCodexStarted') {
+    isCodexStarted.value = true;
+    setTimeout(() => isCodexStarted.value = false, 2000);
   }
 }
 </script>
