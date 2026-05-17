@@ -173,6 +173,15 @@ cat >> .codex/config.toml << 'EOF'
 
 [mcp_servers.agentrq-workspace]
 url = "https://<WORKSPACEID>.mcp.agentrq.com/mcp?token=<TOKEN>"
+allow = [
+  "mcp__agentrq-workspace__updateTaskStatus",
+  "mcp__agentrq-workspace__getWorkspace",
+  "mcp__agentrq-workspace__reply",
+  "mcp__agentrq-workspace__createTask",
+  "mcp__agentrq-workspace__downloadAttachment",
+  "mcp__agentrq-workspace__getTaskMessages",
+  "mcp__agentrq-workspace__getNextTask"
+]
 EOF
 ```
 

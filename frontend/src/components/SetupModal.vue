@@ -260,8 +260,17 @@ const permissionsConfig = computed(() => ({
 const permissionsConfigJson = computed(() => JSON.stringify(permissionsConfig.value, null, 2));
 
 const codexConfigToml = computed(() => {
-  return `[mcp_servers.agentrq-workspace]
-url = "${authenticatedUrl.value}"`;
+  return `[mcp_servers.${serverName.value}]
+url = "${authenticatedUrl.value}"
+allow = [
+  "mcp__${serverName.value}__updateTaskStatus",
+  "mcp__${serverName.value}__getWorkspace",
+  "mcp__${serverName.value}__reply",
+  "mcp__${serverName.value}__createTask",
+  "mcp__${serverName.value}__downloadAttachment",
+  "mcp__${serverName.value}__getTaskMessages",
+  "mcp__${serverName.value}__getNextTask"
+]`;
 });
 
 function copyConfig() {
