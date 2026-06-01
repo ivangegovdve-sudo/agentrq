@@ -35,6 +35,7 @@ const (
 
 func (h *handler) registerTaskRoutes() error {
 	h.router.Get("/tasks", h.listTasks())
+	h.router.Get("/tasks/stats", h.getGlobalTaskStats())
 	h.router.Post(_routePathTasks, h.createTask())
 	h.router.Get(_routePathTasks, h.listTasks())
 	h.router.Get(_routePathTask, h.getTask())
@@ -75,12 +76,35 @@ func (h *handler) createTask() fiber.Handler {
 		// If human created the task, notify the LLM via MCP channel
 		// ONLY if status is NOT 'cron' (don't notify for template creation)
 		if rq.Task.CreatedBy == "human" && rs.Task.Status != "cron" {
-			srv := h.mcpManager.Get(rq.Task.WorkspaceID, rq.UserID)
-			content := fmt.Sprintf("[Task %s] %s\n%s", monoflake.ID(rs.Task.ID).String(), rs.Task.Title, rs.Task.Body)
-			if atts := formatAttachments(rs.Task.Attachments); atts != "" {
-				content += "\n" + atts
+			shouldNotifyMCP := true
+			listRs, listErr := h.crud.ListTasks(ctx, entity.ListTasksRequest{WorkspaceID: rq.Task.WorkspaceID, UserID: rq.UserID})
+			if listErr == nil {
+				hasOngoing := false
+				hasOtherNotStarted := false
+				for _, t := range listRs.Tasks {
+					if t.ID == rs.Task.ID {
+						continue // skip the newly created task itself
+					}
+					if t.Status == "ongoing" {
+						hasOngoing = true
+					}
+					if t.Status == "notstarted" && t.Assignee == "agent" {
+						hasOtherNotStarted = true
+					}
+				}
+				if hasOngoing || hasOtherNotStarted {
+					shouldNotifyMCP = false
+				}
 			}
-			srv.SendChannelNotification(ctx, rs.Task.ID, content)
+
+			if shouldNotifyMCP {
+				srv := h.mcpManager.Get(rq.Task.WorkspaceID, rq.UserID)
+				content := fmt.Sprintf("[Task %s] %s\n%s", monoflake.ID(rs.Task.ID).String(), rs.Task.Title, rs.Task.Body)
+				if atts := formatAttachments(rs.Task.Attachments); atts != "" {
+					content += "\n" + atts
+				}
+				srv.SendChannelNotification(ctx, rs.Task.ID, content)
+			}
 		}
 
 		// Push SSE event
@@ -555,4 +579,21 @@ func formatAttachments(atts []entity.Attachment) string {
 		return ""
 	}
 	return "Attachments:\n" + strings.Join(parts, "\n")
+}
+
+func (h *handler) getGlobalTaskStats() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		c.Set(_headerContentType, _mimeJSON)
+		userID := c.Locals("user_id").(string)
+		ctx, cancel := newContext(c)
+		defer cancel()
+
+		rs, err := h.crud.GetGlobalTaskStats(ctx, userID)
+		if err != nil {
+			e, status := mapper.FromErrorToHTTPResponse(err)
+			c.Status(status)
+			return c.Send(e)
+		}
+		return c.JSON(rs)
+	}
 }
