@@ -309,7 +309,7 @@
           ></textarea>
 
           <!-- Bottom Toolbar -->
-          <div class="flex items-center justify-between px-3 pb-2 pt-1 border-t border-gray-50 dark:border-zinc-850">
+          <div class="flex items-center justify-between px-3 pb-2 pt-1">
             <!-- Left actions (Attachment paperclip & Mode info badge) -->
             <div class="flex items-center gap-2">
               <button type="button" @click="$refs.fileInput.click()"
