@@ -1,11 +1,3 @@
-// Unregister any stale service workers in dev mode so the Vite dev server
-// is never shadowed by a cached production build.
-if (import.meta.env.DEV && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(regs => {
-    regs.forEach(r => r.unregister())
-  })
-}
-
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
