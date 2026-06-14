@@ -23,6 +23,8 @@ import (
 	entity "github.com/agentrq/agentrq/backend/internal/data/entity/crud"
 	"github.com/agentrq/agentrq/backend/internal/data/model"
 	handlerapi "github.com/agentrq/agentrq/backend/internal/handler/api"
+	"github.com/agentrq/agentrq/backend/internal/handler/api/middleware/ddos"
+	"github.com/agentrq/agentrq/backend/internal/handler/api/middleware/ratelimit"
 	handlercoremcp "github.com/agentrq/agentrq/backend/internal/handler/coremcp"
 	handlermcp "github.com/agentrq/agentrq/backend/internal/handler/mcp"
 	handlerslack "github.com/agentrq/agentrq/backend/internal/handler/slack"
@@ -32,20 +34,19 @@ import (
 	repopg "github.com/agentrq/agentrq/backend/internal/repository/postgres"
 	reposqlite "github.com/agentrq/agentrq/backend/internal/repository/sqlite"
 	"github.com/agentrq/agentrq/backend/internal/service/auth"
+	"github.com/agentrq/agentrq/backend/internal/service/cleanup"
 	"github.com/agentrq/agentrq/backend/internal/service/config"
 	"github.com/agentrq/agentrq/backend/internal/service/eventbus"
 	"github.com/agentrq/agentrq/backend/internal/service/idgen"
 	"github.com/agentrq/agentrq/backend/internal/service/image"
 	"github.com/agentrq/agentrq/backend/internal/service/memq"
 	"github.com/agentrq/agentrq/backend/internal/service/pubsub"
+	svclimit "github.com/agentrq/agentrq/backend/internal/service/ratelimit"
 	"github.com/agentrq/agentrq/backend/internal/service/scheduler"
 	"github.com/agentrq/agentrq/backend/internal/service/server"
 	slacksvc "github.com/agentrq/agentrq/backend/internal/service/slack"
 	"github.com/agentrq/agentrq/backend/internal/service/smtp"
-	svclimit "github.com/agentrq/agentrq/backend/internal/service/ratelimit"
 	"github.com/agentrq/agentrq/backend/internal/service/storage"
-	"github.com/agentrq/agentrq/backend/internal/handler/api/middleware/ddos"
-	"github.com/agentrq/agentrq/backend/internal/handler/api/middleware/ratelimit"
 	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
@@ -77,10 +78,10 @@ type (
 			RootLoginEnabled  bool   `yaml:"rootLoginEnabled"`
 			WorkspaceTokenKey string `yaml:"workspaceTokenKey"`
 		} `yaml:"auth"`
-		SMTP      smtp.Config     `yaml:"smtp"`
-		Slack    slacksvc.Config  `yaml:"slack"`
-		WebPush  pushctrl.Config  `yaml:"webPush"`
-		Ddos     struct {
+		SMTP    smtp.Config     `yaml:"smtp"`
+		Slack   slacksvc.Config `yaml:"slack"`
+		WebPush pushctrl.Config `yaml:"webPush"`
+		Ddos    struct {
 			Enabled              bool          `yaml:"enabled"`
 			MaxRequestsPerSecond int           `yaml:"maxRequestsPerSecond"`
 			BlockDuration        time.Duration `yaml:"blockDuration"`
@@ -91,13 +92,15 @@ type (
 			MaxPerUser int           `yaml:"maxPerUser"`
 			Window     time.Duration `yaml:"window"`
 		} `yaml:"ratelimit"`
-		ConfigSvc config.Service  `yaml:"-"` // injected, not from YAML
+		Storage   cleanup.Config `yaml:"storage"`
+		ConfigSvc config.Service `yaml:"-"` // injected, not from YAML
 	}
 
 	App struct {
 		server server.Service
 		bus    *eventbus.Bus
 		pubsub pubsub.Service
+		cancel context.CancelFunc
 	}
 )
 
@@ -106,6 +109,16 @@ func New(cfg Config) (*App, error) {
 	if cfg.App.BaseURL == "" {
 		cfg.App.BaseURL = fmt.Sprintf("http://localhost:%d", cfg.App.Port)
 	}
+
+	appCtx, appCancel := context.WithCancel(context.Background())
+	// cancelOnErr holds the cancel func until the App takes ownership at successful return.
+	// Any early-error return will trigger this defer, preventing a context leak.
+	cancelOnErr := appCancel
+	defer func() {
+		if cancelOnErr != nil {
+			cancelOnErr()
+		}
+	}()
 
 	// ── Database (config-driven) ──────────────────────────────────────────
 	var db dbconn.DBConn
@@ -156,6 +169,14 @@ func New(cfg Config) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("storage: %w", err)
 	}
+
+	cfg.Storage.StorageDir = "./_storage"
+	cleanupSvc, err := cleanup.New(cfg.Storage)
+	if err != nil {
+		return nil, fmt.Errorf("cleanup: %w", err)
+	}
+	cleanupSvc.Start(appCtx)
+
 	imgSvc := image.New()
 
 	mqSvc, err := memq.New(memq.Params{})
@@ -731,7 +752,8 @@ func New(cfg Config) (*App, error) {
 		return nil, fmt.Errorf("server service: %w", err)
 	}
 
-	return &App{server: serverSvc, bus: bus, pubsub: pubsubSvc}, nil
+	cancelOnErr = nil // App takes ownership; defer must not cancel.
+	return &App{server: serverSvc, bus: bus, pubsub: pubsubSvc, cancel: appCancel}, nil
 }
 
 func pubStatsHandler(ctrl pub.StatsController) http.Handler {
@@ -831,5 +853,6 @@ func eventsHandler(ctrl crud.Controller, bus *eventbus.Bus, tokenSvc auth.TokenS
 }
 
 func (a *App) Run() error {
+	defer a.cancel()
 	return a.server.Run()
 }
