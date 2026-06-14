@@ -8,6 +8,7 @@ import (
 
 	entity "github.com/agentrq/agentrq/backend/internal/data/entity/crud"
 	"github.com/agentrq/agentrq/backend/internal/data/model"
+	"github.com/agentrq/agentrq/backend/internal/repository/base"
 	"github.com/mustafaturan/monoflake"
 	"github.com/robfig/cron/v3"
 	"gorm.io/datatypes"
@@ -209,7 +210,7 @@ func (c *controller) RespondToTask(ctx context.Context, req entity.RespondToTask
 		return nil, fmt.Errorf("unknown action: %s", req.Action)
 	}
 
-	if createMsg && msgText != "" {
+	if createMsg && (msgText != "" || len(req.Attachments) > 0) {
 		// Save attachments
 		c.saveAttachments(req.Attachments)
 
@@ -649,19 +650,19 @@ func (c *controller) GetAttachment(ctx context.Context, req entity.GetAttachment
 	// 1. Verify workspace access
 	ok, err := c.repository.CheckWorkspaceAccess(ctx, req.WorkspaceID, uid)
 	if err != nil || !ok {
-		return nil, fmt.Errorf("attachment not found or access denied")
+		return nil, base.ErrNotFound
 	}
 
 	// 2. Load attachment file data from disk
 	data, err := c.storage.LoadRaw(req.AttachmentID)
 	if err != nil {
-		return nil, fmt.Errorf("attachment not found or access denied")
+		return nil, base.ErrNotFound
 	}
 
 	// 3. Query attachment metadata directly from DB
-	filename, mimeType, err := c.repository.FindAttachmentMetadata(ctx, req.WorkspaceID, req.AttachmentID)
+	filename, mimeType, err := c.repository.FindAttachmentMetadata(ctx, req.WorkspaceID, uid, req.TaskID, req.AttachmentID)
 	if err != nil {
-		return nil, fmt.Errorf("attachment not found or access denied")
+		return nil, base.ErrNotFound
 	}
 
 	return &entity.GetAttachmentResponse{
