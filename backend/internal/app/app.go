@@ -100,6 +100,7 @@ type (
 		server server.Service
 		bus    *eventbus.Bus
 		pubsub pubsub.Service
+		cancel context.CancelFunc
 	}
 )
 
@@ -108,6 +109,16 @@ func New(cfg Config) (*App, error) {
 	if cfg.App.BaseURL == "" {
 		cfg.App.BaseURL = fmt.Sprintf("http://localhost:%d", cfg.App.Port)
 	}
+
+	appCtx, appCancel := context.WithCancel(context.Background())
+	// cancelOnErr holds the cancel func until the App takes ownership at successful return.
+	// Any early-error return will trigger this defer, preventing a context leak.
+	cancelOnErr := appCancel
+	defer func() {
+		if cancelOnErr != nil {
+			cancelOnErr()
+		}
+	}()
 
 	// ── Database (config-driven) ──────────────────────────────────────────
 	var db dbconn.DBConn
@@ -164,7 +175,7 @@ func New(cfg Config) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cleanup: %w", err)
 	}
-	cleanupSvc.Start(context.Background())
+	cleanupSvc.Start(appCtx)
 
 	imgSvc := image.New()
 
@@ -741,7 +752,8 @@ func New(cfg Config) (*App, error) {
 		return nil, fmt.Errorf("server service: %w", err)
 	}
 
-	return &App{server: serverSvc, bus: bus, pubsub: pubsubSvc}, nil
+	cancelOnErr = nil // App takes ownership; defer must not cancel.
+	return &App{server: serverSvc, bus: bus, pubsub: pubsubSvc, cancel: appCancel}, nil
 }
 
 func pubStatsHandler(ctrl pub.StatsController) http.Handler {
@@ -841,5 +853,6 @@ func eventsHandler(ctrl crud.Controller, bus *eventbus.Bus, tokenSvc auth.TokenS
 }
 
 func (a *App) Run() error {
+	defer a.cancel()
 	return a.server.Run()
 }
