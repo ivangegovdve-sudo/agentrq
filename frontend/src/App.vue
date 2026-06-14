@@ -12,23 +12,15 @@
           <span>A new version of AgentRQ is available.</span>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-          <div v-if="isUpdating" class="flex items-center gap-2">
-            <span class="text-[10px] font-black uppercase tracking-widest text-white/70">Updating…</span>
-            <div class="w-24 h-1.5 bg-white/20 rounded-full overflow-hidden">
-              <div class="h-full bg-white rounded-full transition-all duration-1000 ease-out" :style="{ width: updateProgress + '%' }"></div>
-            </div>
-          </div>
-          <template v-else>
-            <button @click="handleUpdateNow()"
-                    class="px-3 py-1 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-gray-100 active:scale-95 transition-all">
-              Update now
-            </button>
-            <button @click="needRefresh = false" class="text-gray-400 hover:text-white transition-colors p-0.5" title="Dismiss">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </template>
+          <button @click="handleUpdateNow()"
+                  class="px-3 py-1 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-gray-100 active:scale-95 transition-all">
+            Update now
+          </button>
+          <button @click="needRefresh = false" class="text-gray-400 hover:text-white transition-colors p-0.5" title="Dismiss">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       </div>
     </Transition>
@@ -308,13 +300,7 @@ import Toast from './components/Toast.vue'
 const appVersion = __APP_VERSION__
 const { needRefresh, updateServiceWorker } = useRegisterSW()
 
-const isUpdating = ref(false)
-const updateProgress = ref(0)
-
 const handleUpdateNow = async () => {
-  isUpdating.value = true
-  updateProgress.value = 0
-  requestAnimationFrame(() => { updateProgress.value = 85 })
   await updateServiceWorker(true)
 }
 
