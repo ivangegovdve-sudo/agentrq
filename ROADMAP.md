@@ -1,0 +1,21 @@
+# AgentRQ Roadmap
+
+## 1. AgentRQ CLI
+
+A command-line interface that connects to the AgentRQ backend and spawns agents for desired workspaces. Enables developers to manage workspaces, trigger tasks, and attach agents directly from the terminal without the web UI.
+
+## 2. Agent-to-Agent Collaborative Workflows
+
+Native support for multi-agent collaboration where agents can delegate subtasks to one another, share context, and coordinate across workspaces to complete complex, multi-step missions autonomously.
+
+## 3. Skills Marketplace
+
+A curated registry of reusable agent skills that can be discovered, installed, and shared across workspaces. Teams can publish their own skills and compose them into new workflows.
+
+## 4. MCP Marketplace
+
+A marketplace for Model Context Protocol (MCP) servers — enabling teams to discover, install, and configure MCP integrations directly within AgentRQ workspaces.
+
+## 5. Workflow Marketplace
+
+A library of pre-built end-to-end workflows that can be imported into any workspace. Covers common use cases across engineering, ops, and product — ready to run or fork and customize.
