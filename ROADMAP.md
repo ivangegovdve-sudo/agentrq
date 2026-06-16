@@ -6,7 +6,7 @@ A command-line interface that connects to the AgentRQ backend and spawns agents 
 
 ## 2. Agent-to-Agent Collaborative Workflows
 
-Structured multi-agent execution based on a Supervisor → Worker architecture. A supervisor agent breaks down a mission and delegates subtasks to specialized worker agents across workspaces, coordinating results to complete complex goals. (Further design TBD.)
+TBD.
 
 ## 3. Skills Marketplace
 
